@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: k8s-mcp
+  namespace: k8s-mcp
+  annotations:
+    # 根据使用的 Ingress Controller 调整
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    # 如需增大请求体上限 (例如 gRPC 或大 JSON)
+    # nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: mcp.example.com  # 替换为实际域名
+      http:
+        paths:
+          - path: /mcp
+            pathType: Prefix
+            backend:
+              service:
+                name: k8s-mcp
+                port:
+                  number: 8080
+  # 可选: TLS 配置
+  # tls:
+  #   - hosts:
+  #       - mcp.example.com
+  #     secretName: mcp-tls

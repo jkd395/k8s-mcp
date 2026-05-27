@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package custom;
+
+option go_package = "k8s-mcp/proto";
+
+message CustomRequest {
+  string Kind      = 1;
+  string Method    = 2;
+  string Name      = 3;
+  string Namespace = 4;
+  string JsonData  = 5;
+}
+
+message CustomResponse {
+  string Result = 1;
+}
+
+service CustomToolService {
+    rpc CustomTool (CustomRequest) returns (CustomResponse) {}
+}
