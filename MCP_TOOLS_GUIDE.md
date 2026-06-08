@@ -1,6 +1,6 @@
 # Kubernetes MCP Server - 工具使用手册
 
-该项目是一个基于 [MCP (Model Context Protocol)](https://github.com/mark3labs/mcp-go) 的 Kubernetes 管理服务，提供 **90 个工具** 用于操作 Kubernetes 集群资源。支持 HTTP 和 stdio 两种运行模式。
+该项目是一个基于 [MCP (Model Context Protocol)](https://github.com/mark3labs/mcp-go) 的 Kubernetes 管理服务，提供 **100+ 个工具** 用于操作 Kubernetes 集群资源。支持 HTTP 和 stdio 两种运行模式。
 
 ## 架构概览
 
@@ -9,6 +9,16 @@
 - [`kubernetes/client/client.go`](kubernetes/client/client.go:1) — 初始化 Kubernetes 客户端（支持 InCluster 和 kubeconfig）
 - `kubernetes/<resource>/` — 各资源的具体实现
 - [`proto/`](proto/custom_tool.proto:1) — gRPC 自定义工具协议
+
+---
+
+## 通用参数
+
+所有 `list-*` 和 `get-*` 工具均支持以下可选参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `output` | string | 否 | 输出格式：空=平铺摘要，`json`=完整 K8s 对象 JSON，`yaml`=完整 K8s 对象 YAML |
 
 ---
 
@@ -129,7 +139,7 @@
 | `namespace` | string | 否 | 指定命名空间 |
 | `label` | string | 否 | 标签选择器 |
 
-**输出**：JSON 数组，包含 `name`、`namespace`、`availabeInstance`（Ready/Total）、`labels`
+**输出**：JSON 数组，包含 `name`、`namespace`、`availableInstance`（Ready/Total）、`labels`
 
 ### 13. `get-deployment`
 获取 Deployment 详情。
@@ -880,6 +890,237 @@
 
 ---
 
+## 二十八、Deep Diagnosis 工具（集群故障诊断）
+
+### 91. `describe-pod`
+深度检查 Pod，对标 `kubectl describe pod`。输出容器级状态、Conditions、QoS、资源请求/限制、关联 Events。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `namespace` | string | 是 | Pod 所在命名空间 |
+| `name` | string | 是 | Pod 名称 |
+
+**输出**：纯文本格式，包含：
+- **基本信息**：Name、Namespace、Node、Start Time、Status、IP、QoS Class
+- **Labels**
+- **Conditions**：PodScheduled、Initialized、ContainersReady、Ready 状态
+- **Containers**：每个容器的 Image、Command、Ports、Resource Requests/Limits、Ready、Restart Count、State（Waiting/Running/Terminated 含原因和退出码）、Last State
+- **Init Containers**：状态详情
+- **Events**：按时间倒序，显示 LastTimestamp、Type、Reason、Message、Count
+
+### 92. `describe-node`
+深度检查节点，对标 `kubectl describe node`。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | 节点名称 |
+
+**输出**：纯文本格式，包含：
+- **基本信息**：Creation、Kubelet、OS Image、Kernel、Architecture、PodCIDR、ProviderID
+- **Labels**、**Annotations**、**Taints**
+- **Conditions**：Ready/DiskPressure/MemoryPressure/PIDPressure/NetworkUnavailable 状态、Reason、Message、Last Heartbeat
+- **Capacity**：cpu、memory、pods、ephemeral-storage
+- **Allocatable**：同维度可分配量
+- **Pods**：节点上运行的所有 Pod 列表（ns/name/status）
+
+### 93. `list-node-pods`
+列出指定节点上运行的所有 Pod。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `node` | string | 是 | 节点名称 |
+
+**输出**：JSON 数组，包含 `namespace`、`name`、`status`、`node`
+
+### 94. `describe-service`
+深度检查 Service，对标 `kubectl describe service`。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `namespace` | string | 是 | 命名空间 |
+| `name` | string | 是 | Service 名称 |
+
+**输出**：纯文本格式，包含：
+- **基本信息**：Type、ClusterIP、ExternalIPs、ExternalName、LoadBalancerIP、Session Affinity
+- **Labels**、**Selector**
+- **Ports**：name、port/protocol → targetPort
+- **Endpoints**：每个 subset 的地址（含 NodeName）
+- **Events**
+
+### 95. `describe-deployment`
+深度检查 Deployment，对标 `kubectl describe deployment`。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `namespace` | string | 是 | 命名空间 |
+| `name` | string | 是 | Deployment 名称 |
+
+**输出**：纯文本格式，包含：
+- **基本信息**：Strategy（RollingUpdate 的 MaxSurge/MaxUnavailable）、Replicas（desired/updated/total/available/unavailable）、Revision History Limit、Min Ready Seconds、Rollout Status
+- **Labels**、**Selector**
+- **Conditions**：Available/Progressing/ReplicaFailure 状态、Reason、Message、LastUpdateTime
+- **Containers**：Image、Resource Requests/Limits
+- **Pods**：按 Phase 统计（Running/Pending/Failed 等）
+- **Events**
+
+### 111. `check-apiserver-health`
+探测 API Server 的健康端点。**不依赖 Pod 标签或 ComponentStatus API，二进制部署的 apiserver 同样可用。**
+
+**无参数**。直接调用 apiserver 的三个端点：
+- `/healthz?verbose` — 详细健康检查结果
+- `/livez?verbose` — 存活探活
+- `/readyz?verbose` — 就绪探活
+
+**输出**：纯文本，每个端点的 HTTP 状态码和所有非 `ok` 的检查项。
+
+### 111. `check-apiserver-metrics`
+拉取 API Server 的 `/metrics` 并分析关键性能指标。**二进制部署的 apiserver 同样可用。**
+
+**无参数**。需要 apiserver 配置 `--authorization-always-allow-paths=/metrics` 或在 RBAC 中放权。
+
+**输出**：包含：
+- **Current Inflight Requests**：mutating 和 readOnly 当前处理中的请求数
+- **Request Counts**：按 Verb（GET/LIST/WATCH/POST/PUT/PATCH/DELETE）统计请求总量、错误量、错误率
+- **Request Latency**：按 Verb 估算 p50/p90/p99 延迟
+- **Top Error Endpoints**：4xx/5xx 错误按 code 排序
+
+---
+
+## 二十九、Helm 工具
+
+### 111. `helm-list-releases`
+列出 Helm Releases。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `namespace` | string | 否 | 过滤命名空间 |
+| `allNamespaces` | boolean | 否 | 列出所有命名空间的 release |
+| `output` | string | 否 | 输出格式：`json` 或 `yaml` 获取完整对象 |
+
+### 111. `helm-get-release`
+获取 Release 详情。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | Release 名称 |
+| `namespace` | string | 是 | Release 所在命名空间 |
+| `output` | string | 否 | 输出格式 |
+
+### 111. `helm-get-values`
+获取 Release 的 Values。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | Release 名称 |
+| `namespace` | string | 是 | Release 所在命名空间 |
+
+### 111. `helm-install`
+安装 Chart。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | Release 名称 |
+| `namespace` | string | 是 | 目标命名空间 |
+| `chart` | string | 是 | Chart 引用，如 `stable/nginx-ingress`，或本地路径 |
+| `version` | string | 否 | Chart 版本 |
+| `values` | string | 否 | 内联 YAML/JSON 格式的 values |
+| `set` | string | 否 | 命令行设置 values，格式 `key1=val1,key2=val2` |
+
+> `values` 和 `set` 可以同时使用，`set` 优先级更高。
+
+### 111. `helm-upgrade`
+升级 Release。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | Release 名称 |
+| `namespace` | string | 是 | Release 所在命名空间 |
+| `chart` | string | 是 | 新 Chart 引用 |
+| `version` | string | 否 | Chart 版本 |
+| `values` | string | 否 | 内联 YAML/JSON 格式的 values |
+| `set` | string | 否 | 命令行设置 values |
+| `reuseValues` | boolean | 否 | 是否复用之前的 values，默认 `true` |
+
+### 111. `helm-uninstall`
+卸载 Release。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | Release 名称 |
+| `namespace` | string | 是 | Release 所在命名空间 |
+
+### 111. `helm-rollback`
+回滚 Release 到指定版本。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | Release 名称 |
+| `namespace` | string | 是 | Release 所在命名空间 |
+| `revision` | number | 否 | 目标版本号，默认回滚到上一个版本 |
+
+### 111. `helm-history`
+获取 Release 的修订历史。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | Release 名称 |
+| `namespace` | string | 是 | Release 所在命名空间 |
+| `max` | number | 否 | 最大显示版本数 |
+
+**输出**：JSON 数组，每个版本包含 `revision`、`status`、`chart`、`appVersion`、`description`、`updated`
+
+### 111. `helm-get-manifest`
+获取 Release 的渲染后 Manifest。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | Release 名称 |
+| `namespace` | string | 是 | Release 所在命名空间 |
+
+### 111. `helm-get-notes`
+获取 Release 的 NOTES.txt 内容。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | Release 名称 |
+| `namespace` | string | 是 | Release 所在命名空间 |
+
+### 111. `helm-list-repos`
+列出已添加的 Helm 仓库。
+
+**无参数**。
+
+### 111. `helm-add-repo`
+添加 Helm 仓库并下载索引。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | 仓库名称 |
+| `url` | string | 是 | 仓库 URL |
+
+### 111. `helm-remove-repo`
+移除 Helm 仓库。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 是 | 仓库名称 |
+
+### 111. `helm-update-repos`
+更新 Helm 仓库索引文件。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | string | 否 | 仓库名称，为空则更新所有仓库 |
+
+### 111. `helm-search-repo`
+在所有已添加的仓库中搜索 Chart。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `keyword` | string | 是 | 搜索关键词（匹配 chart 名称、描述、appVersion） |
+
+---
+
 ## 启动方式
 
 ```bash
@@ -1016,3 +1257,27 @@ go run main.go -apiKey my-secret-key
 | `top-node` | `tools.TopNode` | `top.TopNode` |
 | `cluster-health` | `tools.GetClusterHealth` | `clusterhealth.GetClusterHealth` |
 | `node-health` | `tools.ListNodeHealth` | `clusterhealth.ListNodeHealth` |
+| `describe-pod` | `tools.DescribePod` | `diagnose.DescribePod` |
+| `describe-node` | `tools.DescribeNode` | `diagnose.DescribeNode` |
+| `list-node-pods` | `tools.ListNodePods` | `diagnose.ListNodePods` |
+| `describe-service` | `tools.DescribeService` | `diagnose.DescribeService` |
+| `describe-deployment` | `tools.DescribeDeployment` | `diagnose.DescribeDeployment` |
+| `check-apiserver-health` | `tools.CheckAPIServerHealth` | `diagnose.CheckAPIServerHealth` |
+| `check-apiserver-metrics` | `tools.CheckAPIServerMetrics` | `diagnose.CheckAPIServerMetrics` |
+| `helm-list-releases` | `tools.ListHelmReleases` | `helm.ListHelmReleases` |
+| `helm-get-release` | `tools.GetHelmRelease` | `helm.GetHelmRelease` |
+| `helm-get-values` | `tools.GetHelmReleaseValues` | `helm.GetHelmReleaseValues` |
+| `helm-install` | `tools.InstallHelmRelease` | `helm.InstallHelmRelease` |
+| `helm-upgrade` | `tools.UpgradeHelmRelease` | `helm.UpgradeHelmRelease` |
+| `helm-uninstall` | `tools.UninstallHelmRelease` | `helm.UninstallHelmRelease` |
+| `helm-rollback` | `tools.RollbackHelmRelease` | `helm.RollbackHelmRelease` |
+| `helm-history` | `tools.GetHelmReleaseHistory` | `helm.GetHelmReleaseHistory` |
+| `helm-get-manifest` | `tools.GetHelmReleaseManifest` | `helm.GetHelmReleaseManifest` |
+| `helm-get-notes` | `tools.GetHelmReleaseNotes` | `helm.GetHelmReleaseNotes` |
+| `helm-list-repos` | `tools.ListHelmRepos` | `helm.ListHelmRepos` |
+| `helm-add-repo` | `tools.AddHelmRepo` | `helm.AddHelmRepo` |
+| `helm-remove-repo` | `tools.RemoveHelmRepo` | `helm.RemoveHelmRepo` |
+| `helm-update-repos` | `tools.UpdateHelmRepos` | `helm.UpdateHelmRepos` |
+| `helm-search-repo` | `tools.SearchHelmRepo` | `helm.SearchHelmRepo` |
+
+---

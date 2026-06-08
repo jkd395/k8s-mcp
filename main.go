@@ -14,8 +14,10 @@ import (
 	"k8s-mcp/kubernetes/custom"
 	"k8s-mcp/kubernetes/daemonset"
 	"k8s-mcp/kubernetes/deployment"
+	"k8s-mcp/kubernetes/diagnose"
 	"k8s-mcp/kubernetes/endpoint"
 	"k8s-mcp/kubernetes/event"
+	"k8s-mcp/kubernetes/helm"
 	"k8s-mcp/kubernetes/hpa"
 	"k8s-mcp/kubernetes/ingress"
 	"k8s-mcp/kubernetes/job"
@@ -256,9 +258,35 @@ func main() {
 	s.AddTool(tools.GetClusterHealth, clusterhealth.GetClusterHealth)
 	s.AddTool(tools.ListNodeHealth, clusterhealth.ListNodeHealth)
 
+	// Diagnosis tools
+	s.AddTool(tools.DescribePod, diagnose.DescribePod)
+	s.AddTool(tools.DescribeNode, diagnose.DescribeNode)
+	s.AddTool(tools.ListNodePods, diagnose.ListNodePods)
+	s.AddTool(tools.DescribeService, diagnose.DescribeService)
+	s.AddTool(tools.DescribeDeployment, diagnose.DescribeDeployment)
+	s.AddTool(tools.CheckAPIServerHealth, diagnose.CheckAPIServerHealth)
+	s.AddTool(tools.CheckAPIServerMetrics, diagnose.CheckAPIServerMetrics)
+
 	// Top tools (metrics)
 	s.AddTool(tools.TopPod, top.TopPod)
 	s.AddTool(tools.TopNode, top.TopNode)
+
+	// Helm tools
+	s.AddTool(tools.ListHelmReleases, helm.ListHelmReleases)
+	s.AddTool(tools.GetHelmRelease, helm.GetHelmRelease)
+	s.AddTool(tools.GetHelmReleaseValues, helm.GetHelmReleaseValues)
+	s.AddTool(tools.InstallHelmRelease, helm.InstallHelmRelease)
+	s.AddTool(tools.UpgradeHelmRelease, helm.UpgradeHelmRelease)
+	s.AddTool(tools.UninstallHelmRelease, helm.UninstallHelmRelease)
+	s.AddTool(tools.RollbackHelmRelease, helm.RollbackHelmRelease)
+	s.AddTool(tools.GetHelmReleaseHistory, helm.GetHelmReleaseHistory)
+	s.AddTool(tools.GetHelmReleaseManifest, helm.GetHelmReleaseManifest)
+	s.AddTool(tools.GetHelmReleaseNotes, helm.GetHelmReleaseNotes)
+	s.AddTool(tools.ListHelmRepos, helm.ListHelmRepos)
+	s.AddTool(tools.AddHelmRepo, helm.AddHelmRepo)
+	s.AddTool(tools.RemoveHelmRepo, helm.RemoveHelmRepo)
+	s.AddTool(tools.UpdateHelmRepos, helm.UpdateHelmRepos)
+	s.AddTool(tools.SearchHelmRepo, helm.SearchHelmRepo)
 
 	if mode == "http" {
 		handler := server.NewStreamableHTTPServer(s, server.WithDisableStreaming(true))

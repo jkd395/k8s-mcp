@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"k8s-mcp/kubernetes/client"
+	k8soutput "k8s-mcp/kubernetes/output"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
@@ -19,21 +20,24 @@ type secretData struct {
 
 func ListSecret(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns := request.GetString("namespace", "")
+	outputParam := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 	var output []secretData
+	var rawItems []v1.Secret
 	if ns == "" {
-		namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing namespace: %v", err)), nil
 		}
 		for _, namespace := range namespaces.Items {
-			secrets, err := clientset.CoreV1().Secrets(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+			secrets, err := clientset.CoreV1().Secrets(namespace.Name).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error in listing secret in %s: %v", namespace.Name, err)), nil
 			}
+			rawItems = append(rawItems, secrets.Items...)
 			for _, secret := range secrets.Items {
 				output = append(output, secretData{
 					Name:      secret.Name,
@@ -41,15 +45,29 @@ func ListSecret(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTool
 				})
 			}
 		}
+		if outputParam != "" {
+			raw, err := k8soutput.Format(outputParam, rawItems)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(raw), nil
+		}
 		mcpOutput, err := json.MarshalIndent(output, "", " ")
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 		}
 		return mcp.NewToolResultText(string(mcpOutput)), nil
 	} else {
-		secrets, err := clientset.CoreV1().Secrets(ns).List(context.TODO(), metav1.ListOptions{})
+		secrets, err := clientset.CoreV1().Secrets(ns).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing secrets in %s: %v", ns, err)), nil
+		}
+		if outputParam != "" {
+			raw, err := k8soutput.Format(outputParam, secrets.Items)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(raw), nil
 		}
 		for _, secret := range secrets.Items {
 			output = append(output, secretData{
@@ -76,13 +94,22 @@ func GetSecret(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 		output := fmt.Sprintf("Provide name for secret")
 		return mcp.NewToolResultText(string(output)), nil
 	}
+	outputParam := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	secret, err := clientset.CoreV1().Secrets(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	secret, err := clientset.CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting secrets in %s: %v", ns, err)), nil
+	}
+
+	if outputParam != "" {
+		raw, err := k8soutput.Format(outputParam, secret)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(raw), nil
 	}
 
 	output := secretData{
@@ -111,9 +138,9 @@ func DeleteSecret(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTo
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.CoreV1().Secrets(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.CoreV1().Secrets(ns).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting secrets in %s: %v", ns, err)), nil
 	}
@@ -141,7 +168,7 @@ func CreateSecret(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTo
 
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 
 	secretData := make(map[string]string)
@@ -164,7 +191,7 @@ func CreateSecret(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTo
 		StringData: secretData,
 		Type:       v1.SecretTypeOpaque,
 	}
-	createSecret, err := clientset.CoreV1().Secrets(ns).Create(context.TODO(), secret, metav1.CreateOptions{})
+	createSecret, err := clientset.CoreV1().Secrets(ns).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in creating secrets in %s/%s: %v", ns, name, err)), nil
 	}

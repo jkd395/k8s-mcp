@@ -43,13 +43,13 @@ type nodeHealthData struct {
 func GetClusterHealth(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 
 	report := healthReport{}
 
 	// 1. Node health summary
-	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	nodes, err := clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in listing nodes: %v", err)), nil
 	}
@@ -84,7 +84,7 @@ func GetClusterHealth(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 
 	seen := make(map[string]bool)
 	for _, cl := range componentLabels {
-		pods, err := clientset.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{
+		pods, err := clientset.CoreV1().Pods("kube-system").List(ctx, metav1.ListOptions{
 			LabelSelector: cl.label,
 		})
 		if err != nil {
@@ -121,9 +121,9 @@ func GetClusterHealth(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 func ListNodeHealth(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	nodes, err := clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in listing nodes: %v", err)), nil
 	}

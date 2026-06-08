@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"k8s-mcp/kubernetes/client"
+	"k8s-mcp/kubernetes/output"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -23,11 +24,19 @@ type rules struct {
 func ListCR(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	crs, err := clientset.RbacV1().ClusterRoles().List(context.TODO(), metav1.ListOptions{})
+	crs, err := clientset.RbacV1().ClusterRoles().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in listing clusterrole: %v", err)), nil
+	}
+	outFmt := request.GetString("output", "")
+	if outFmt != "" {
+		result, err := output.Format(outFmt, crs.Items)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
 	}
 	var output []crData
 	for _, cr := range crs.Items {
@@ -50,11 +59,19 @@ func GetCR(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResul
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	cr, err := clientset.RbacV1().ClusterRoles().Get(context.TODO(), name, metav1.GetOptions{})
+	cr, err := clientset.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting clusterrole named %s: %v", name, err)), nil
+	}
+	outFmt := request.GetString("output", "")
+	if outFmt != "" {
+		result, err := output.Format(outFmt, cr)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
 	}
 
 	var crRules []rules
@@ -87,9 +104,9 @@ func DeleteCR(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.RbacV1().ClusterRoles().Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.RbacV1().ClusterRoles().Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting clusterrole named %s: %v", name, err)), nil
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"k8s-mcp/kubernetes/client"
+	outpkg "k8s-mcp/kubernetes/output"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -26,24 +27,34 @@ type eventData struct {
 
 func ListEvent(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns := request.GetString("namespace", "")
+	outputFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 	var output []eventData
 	if ns == "" {
-		namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing namespace: %v", err)), nil
 		}
+		var allItems []v1.Event
 		for _, namespace := range namespaces.Items {
-			events, err := clientset.CoreV1().Events(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+			events, err := clientset.CoreV1().Events(namespace.Name).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error in listing events in %s: %v", namespace.Name, err)), nil
 			}
-			for _, e := range events.Items {
-				output = append(output, toEventData(e))
+			allItems = append(allItems, events.Items...)
+		}
+		if outputFmt != "" {
+			result, err := outpkg.Format(outputFmt, allItems)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
 			}
+			return mcp.NewToolResultText(result), nil
+		}
+		for _, e := range allItems {
+			output = append(output, toEventData(e))
 		}
 		mcpOutput, err := json.MarshalIndent(output, "", " ")
 		if err != nil {
@@ -51,9 +62,16 @@ func ListEvent(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 		}
 		return mcp.NewToolResultText(string(mcpOutput)), nil
 	} else {
-		events, err := clientset.CoreV1().Events(ns).List(context.TODO(), metav1.ListOptions{})
+		events, err := clientset.CoreV1().Events(ns).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing events in %s: %v", ns, err)), nil
+		}
+		if outputFmt != "" {
+			result, err := outpkg.Format(outputFmt, events.Items)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(result), nil
 		}
 		for _, e := range events.Items {
 			output = append(output, toEventData(e))
@@ -77,14 +95,24 @@ func GetEvent(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 		output := fmt.Sprintf("Provide name for event")
 		return mcp.NewToolResultText(string(output)), nil
 	}
+	outputFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	e, err := clientset.CoreV1().Events(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	e, err := clientset.CoreV1().Events(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting event %s/%s: %v", ns, name, err)), nil
 	}
+
+	if outputFmt != "" {
+		result, err := outpkg.Format(outputFmt, e)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
+	}
+
 	output := toEventData(*e)
 	mcpOutput, err := json.MarshalIndent(output, "", " ")
 	if err != nil {

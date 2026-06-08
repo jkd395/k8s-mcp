@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"k8s-mcp/kubernetes/client"
+	"k8s-mcp/kubernetes/output"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 )
@@ -31,13 +32,21 @@ type nodeData struct {
 func ListNode(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	outFormat := request.GetString("output", "")
+	nodes, err := clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in listing node: %v", err)), nil
 	}
-	var output []nodeData
+	if outFormat != "" {
+		result, err := output.Format(outFormat, nodes.Items)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
+	}
+	var summary []nodeData
 	for _, node := range nodes.Items {
 		var nodeStatus string
 		for _, v := range node.Status.Conditions {
@@ -53,7 +62,7 @@ func ListNode(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 		for _, t := range node.Spec.Taints {
 			taints = append(taints, fmt.Sprintf("%s=%s:%s", t.Key, t.Value, t.Effect))
 		}
-		output = append(output, nodeData{
+		summary = append(summary, nodeData{
 			Name:           node.Name,
 			Status:         nodeStatus,
 			CapacityCPU:    node.Status.Capacity.Cpu().String(),
@@ -66,7 +75,7 @@ func ListNode(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 			Taints:         taints,
 		})
 	}
-	mcpOutput, err := json.MarshalIndent(output, "", " ")
+	mcpOutput, err := json.MarshalIndent(summary, "", " ")
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 	}
@@ -76,16 +85,24 @@ func ListNode(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 func GetNode(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	name, err := request.RequireString("name")
 	if err != nil {
-		output := fmt.Sprintf("Provide name for node")
-		return mcp.NewToolResultText(string(output)), nil
+		msg := fmt.Sprintf("Provide name for node")
+		return mcp.NewToolResultText(msg), nil
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	node, err := clientset.CoreV1().Nodes().Get(context.TODO(), name, metav1.GetOptions{})
+	outFormat := request.GetString("output", "")
+	node, err := clientset.CoreV1().Nodes().Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting node: %v", err)), nil
+	}
+	if outFormat != "" {
+		result, err := output.Format(outFormat, node)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
 	}
 	var nodeStatus string
 	for _, v := range node.Status.Conditions {
@@ -101,7 +118,7 @@ func GetNode(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRes
 	for _, t := range node.Spec.Taints {
 		taints = append(taints, fmt.Sprintf("%s=%s:%s", t.Key, t.Value, t.Effect))
 	}
-	output := nodeData{
+	summary := nodeData{
 		Name:              node.Name,
 		Status:            nodeStatus,
 		KubernetesVersion: node.Status.NodeInfo.KubeletVersion,
@@ -118,7 +135,7 @@ func GetNode(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRes
 		Labels:            node.Labels,
 		Taints:            taints,
 	}
-	mcpOutput, err := json.MarshalIndent(output, "", " ")
+	mcpOutput, err := json.MarshalIndent(summary, "", " ")
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 	}
@@ -133,9 +150,9 @@ func DeleteNode(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTool
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.CoreV1().Nodes().Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.CoreV1().Nodes().Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting node: %v", err)), nil
 	}
@@ -156,9 +173,9 @@ func UpdateNode(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTool
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	node, err := clientset.CoreV1().Nodes().Get(context.TODO(), name, metav1.GetOptions{})
+	node, err := clientset.CoreV1().Nodes().Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting node: %v", err)), nil
 	}
@@ -172,7 +189,7 @@ func UpdateNode(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTool
 			node.Labels[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
 		}
 	}
-	updateNode, err := clientset.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
+	updateNode, err := clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in updating node %s with label %s: %v", name, labels, err)), nil
 	}

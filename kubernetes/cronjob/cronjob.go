@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"k8s-mcp/kubernetes/client"
+	outpkg "k8s-mcp/kubernetes/output"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -24,36 +25,46 @@ type cronjobData struct {
 
 func ListCronJob(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns := request.GetString("namespace", "")
+	outputFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 	var output []cronjobData
 	if ns == "" {
-		namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing namespace: %v", err)), nil
 		}
+		var allItems []batchv1.CronJob
 		for _, namespace := range namespaces.Items {
-			cronjobs, err := clientset.BatchV1().CronJobs(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+			cronjobs, err := clientset.BatchV1().CronJobs(namespace.Name).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error in listing cronjob in %s: %v", namespace.Name, err)), nil
 			}
-			for _, cj := range cronjobs.Items {
-				var lastSchedule *string
-				if cj.Status.LastScheduleTime != nil {
-					t := cj.Status.LastScheduleTime.Format("2006-01-02 15:04:05")
-					lastSchedule = &t
-				}
-				output = append(output, cronjobData{
-					Name:             cj.Name,
-					Namespace:        cj.Namespace,
-					Schedule:         cj.Spec.Schedule,
-					Suspend:          cj.Spec.Suspend,
-					LastScheduleTime: lastSchedule,
-					Labels:           cj.Labels,
-				})
+			allItems = append(allItems, cronjobs.Items...)
+		}
+		if outputFmt != "" {
+			result, err := outpkg.Format(outputFmt, allItems)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
 			}
+			return mcp.NewToolResultText(result), nil
+		}
+		for _, cj := range allItems {
+			var lastSchedule *string
+			if cj.Status.LastScheduleTime != nil {
+				t := cj.Status.LastScheduleTime.Format("2006-01-02 15:04:05")
+				lastSchedule = &t
+			}
+			output = append(output, cronjobData{
+				Name:             cj.Name,
+				Namespace:        cj.Namespace,
+				Schedule:         cj.Spec.Schedule,
+				Suspend:          cj.Spec.Suspend,
+				LastScheduleTime: lastSchedule,
+				Labels:           cj.Labels,
+			})
 		}
 		mcpOutput, err := json.MarshalIndent(output, "", " ")
 		if err != nil {
@@ -61,9 +72,16 @@ func ListCronJob(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToo
 		}
 		return mcp.NewToolResultText(string(mcpOutput)), nil
 	} else {
-		cronjobs, err := clientset.BatchV1().CronJobs(ns).List(context.TODO(), metav1.ListOptions{})
+		cronjobs, err := clientset.BatchV1().CronJobs(ns).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing cronjob in %s namespace: %v", ns, err)), nil
+		}
+		if outputFmt != "" {
+			result, err := outpkg.Format(outputFmt, cronjobs.Items)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(result), nil
 		}
 		for _, cj := range cronjobs.Items {
 			var lastSchedule *string
@@ -99,14 +117,24 @@ func GetCronJob(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTool
 		output := fmt.Sprintf("Provide name for cronjob")
 		return mcp.NewToolResultText(string(output)), nil
 	}
+	outputFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	cj, err := clientset.BatchV1().CronJobs(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	cj, err := clientset.BatchV1().CronJobs(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting cronjob %s/%s: %v", ns, name, err)), nil
 	}
+
+	if outputFmt != "" {
+		result, err := outpkg.Format(outputFmt, cj)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
+	}
+
 	var lastSchedule *string
 	if cj.Status.LastScheduleTime != nil {
 		t := cj.Status.LastScheduleTime.Format("2006-01-02 15:04:05")
@@ -140,9 +168,9 @@ func DeleteCronJob(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.BatchV1().CronJobs(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.BatchV1().CronJobs(ns).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting cronjob %s/%s: %v", ns, name, err)), nil
 	}
@@ -181,7 +209,7 @@ func CreateCronJob(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 
 	lab := make(map[string]string)
@@ -239,7 +267,7 @@ func CreateCronJob(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 		},
 	}
 
-	createCronJob, err := clientset.BatchV1().CronJobs(ns).Create(context.TODO(), cronjob, metav1.CreateOptions{})
+	createCronJob, err := clientset.BatchV1().CronJobs(ns).Create(ctx, cronjob, metav1.CreateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in creating cronjob %s/%s: %v", ns, name, err)), nil
 	}

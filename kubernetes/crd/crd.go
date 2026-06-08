@@ -19,9 +19,9 @@ type crdData struct {
 func ListCRD(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	_, _, _, apiClient, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	crds, err := apiClient.ApiextensionsV1().CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{})
+	crds, err := apiClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in listing crds: %v", err)), nil
 	}
@@ -44,9 +44,9 @@ func GetCRD(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResu
 	}
 	_, _, _, apiClient, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	crds, err := apiClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), name, metav1.GetOptions{})
+	crds, err := apiClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting crd: %v", err)), nil
 	}
@@ -70,9 +70,9 @@ func DeleteCRD(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 	}
 	_, _, _, apiClient, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = apiClient.ApiextensionsV1().CustomResourceDefinitions().Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = apiClient.ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting crds: %v", err)), nil
 	}
@@ -87,7 +87,7 @@ func CreateCRDWithJson(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	}
 	_, _, _, apiClient, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 
 	var crd apiextensionsv1.CustomResourceDefinition
@@ -95,7 +95,7 @@ func CreateCRDWithJson(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 		return nil, err
 	}
 
-	_, err = apiClient.ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), &crd, metav1.CreateOptions{})
+	_, err = apiClient.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, &crd, metav1.CreateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in creating crd: %v", err)), nil
 	}

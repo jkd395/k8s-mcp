@@ -17,20 +17,18 @@ func init() {
 	flag.StringVar(&kubeconfigPath, "kubeconfigPath", "", "Path to kubeconfig file")
 }
 
+func GetRestConfig() (*rest.Config, error) {
+	if kubeconfigPath == "" {
+		return rest.InClusterConfig()
+	}
+	return clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+}
+
 func InitializeClients() (*kubernetes.Clientset, dynamic.Interface, discovery.DiscoveryInterface, *apiextensionsclient.Clientset, metricsv.Interface, error) {
 
-	var config *rest.Config
-	var err error
-	if kubeconfigPath == "" {
-		config, err = rest.InClusterConfig()
-		if err != nil {
-			return nil, nil, nil, nil, nil, err
-		}
-	} else {
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfigPath)
-		if err != nil {
-			return nil, nil, nil, nil, nil, err
-		}
+	config, err := GetRestConfig()
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {

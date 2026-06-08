@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"k8s-mcp/kubernetes/client"
+	"k8s-mcp/kubernetes/output"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,38 +25,53 @@ type pvcData struct {
 
 func ListPVC(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns := request.GetString("namespace", "")
+	outFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	var output []pvcData
+	var pvcList []pvcData
 	if ns == "" {
-		namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing namespace: %v", err)), nil
 		}
 		for _, namespace := range namespaces.Items {
-			pvcs, err := clientset.CoreV1().PersistentVolumeClaims(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+			pvcs, err := clientset.CoreV1().PersistentVolumeClaims(namespace.Name).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error in listing pvc in %s: %v", namespace.Name, err)), nil
 			}
+			if outFmt != "" {
+				result, err := output.Format(outFmt, pvcs.Items)
+				if err != nil {
+					return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+				}
+				return mcp.NewToolResultText(result), nil
+			}
 			for _, pvc := range pvcs.Items {
-				output = append(output, pvcData{
+				pvcList = append(pvcList, pvcData{
 					Name:      pvc.Name,
 					Namespace: pvc.Namespace,
 					Status:    string(pvc.Status.Phase),
 				})
 			}
 		}
-		mcpOutput, err := json.MarshalIndent(output, "", " ")
+		mcpOutput, err := json.MarshalIndent(pvcList, "", " ")
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 		}
 		return mcp.NewToolResultText(string(mcpOutput)), nil
 	} else {
-		pvcs, err := clientset.CoreV1().PersistentVolumeClaims(ns).List(context.TODO(), metav1.ListOptions{})
+		pvcs, err := clientset.CoreV1().PersistentVolumeClaims(ns).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing pvc in %s: %v", ns, err)), nil
+		}
+		if outFmt != "" {
+			result, err := output.Format(outFmt, pvcs.Items)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(result), nil
 		}
 		for _, pvc := range pvcs.Items {
 			capacity := ""
@@ -64,18 +80,18 @@ func ListPVC(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRes
 					capacity = qty.String()
 				}
 			}
-			output = append(output, pvcData{
+			pvcList = append(pvcList, pvcData{
 				Name:      pvc.Name,
 				Namespace: pvc.Namespace,
 				Capacity:  capacity,
 				Status:    string(pvc.Status.Phase),
 			})
 		}
-		mcpOutput, err := json.MarshalIndent(output, "", " ")
+		mcpOutput, err := json.MarshalIndent(pvcList, "", " ")
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 		}
-		return mcp.NewToolResultText(string(mcpOutput)), nil	
+		return mcp.NewToolResultText(string(mcpOutput)), nil
 	}
 }
 
@@ -92,11 +108,19 @@ func GetPVC(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResu
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	pvc, err := clientset.CoreV1().PersistentVolumeClaims(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	pvc, err := clientset.CoreV1().PersistentVolumeClaims(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting pvc in %s/%s: %v", ns, name, err)), nil
+	}
+	outFmt := request.GetString("output", "")
+	if outFmt != "" {
+		result, err := output.Format(outFmt, pvc)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
 	}
 	var accMode []string
 	for _, mode := range pvc.Spec.AccessModes {
@@ -112,7 +136,7 @@ func GetPVC(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResu
 	if pvc.Spec.StorageClassName != nil {
 		storageClass = *pvc.Spec.StorageClassName
 	}
-	output := pvcData{
+	res := pvcData{
 		Name:         pvc.Name,
 		Namespace:    pvc.Namespace,
 		Capacity:     capacity,
@@ -121,7 +145,7 @@ func GetPVC(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResu
 		Volume:       pvc.Spec.VolumeName,
 		Status:       string(pvc.Status.Phase),
 	}
-	mcpOutput, err := json.MarshalIndent(output, "", " ")
+	mcpOutput, err := json.MarshalIndent(res, "", " ")
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 	}
@@ -141,9 +165,9 @@ func DeletePVC(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.CoreV1().PersistentVolumeClaims(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.CoreV1().PersistentVolumeClaims(ns).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting pvc in %s/%s: %v", ns, name, err)), nil
 	}
@@ -169,9 +193,9 @@ func UpdatePVC(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	pvc, err := clientset.CoreV1().PersistentVolumeClaims(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	pvc, err := clientset.CoreV1().PersistentVolumeClaims(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting pvc in %s/%s: %v", ns, name, err)), nil
 	}
@@ -183,7 +207,7 @@ func UpdatePVC(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 
 	pvc.Spec.Resources.Requests[v1.ResourceStorage] = qty
 
-	updatePVC, err := clientset.CoreV1().PersistentVolumeClaims(ns).Update(context.TODO(), pvc, metav1.UpdateOptions{})
+	updatePVC, err := clientset.CoreV1().PersistentVolumeClaims(ns).Update(ctx, pvc, metav1.UpdateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in updating pvc in %s/%s with size %s: %v", ns, name, size, err)), nil
 	}
@@ -217,7 +241,7 @@ func CreatePVC(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 
 	var storageClassName *string
@@ -240,7 +264,7 @@ func CreatePVC(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 			StorageClassName: storageClassName,
 		},
 	}
-	createPVC, err := clientset.CoreV1().PersistentVolumeClaims(ns).Create(context.TODO(), pvc, metav1.CreateOptions{})
+	createPVC, err := clientset.CoreV1().PersistentVolumeClaims(ns).Create(ctx, pvc, metav1.CreateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in creating pvc %s/%s: %v", ns, name, err)), nil
 	}

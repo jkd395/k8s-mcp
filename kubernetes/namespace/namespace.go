@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"k8s-mcp/kubernetes/client"
+	"k8s-mcp/kubernetes/output"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
@@ -19,20 +20,28 @@ type namespaceData struct {
 func ListNS(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	outFormat := request.GetString("output", "")
+	namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in listing namespace: %v", err)), nil
 	}
-	var output []namespaceData
+	if outFormat != "" {
+		result, err := output.Format(outFormat, namespaces.Items)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
+	}
+	var summary []namespaceData
 	for _, namespace := range namespaces.Items {
-		output = append(output, namespaceData{
+		summary = append(summary, namespaceData{
 			Name:   namespace.Name,
 			Status: string(namespace.Status.Phase),
 		})
 	}
-	mcpOutput, err := json.MarshalIndent(output, "", " ")
+	mcpOutput, err := json.MarshalIndent(summary, "", " ")
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 	}
@@ -42,22 +51,30 @@ func ListNS(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResu
 func GetNS(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	name, err := request.RequireString("name")
 	if err != nil {
-		output := fmt.Sprintf("Provide namespace name to get")
-		return mcp.NewToolResultText(string(output)), nil
+		msg := fmt.Sprintf("Provide namespace name to get")
+		return mcp.NewToolResultText(msg), nil
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	namespace, err := clientset.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+	outFormat := request.GetString("output", "")
+	namespace, err := clientset.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in gettting the namespace %s: %v", name, err)), nil
 	}
-	output := namespaceData{
+	if outFormat != "" {
+		result, err := output.Format(outFormat, namespace)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
+	}
+	summary := namespaceData{
 		Name:   namespace.Name,
 		Status: string(namespace.Status.Phase),
 	}
-	mcpOutput, err := json.MarshalIndent(output, "", " ")
+	mcpOutput, err := json.MarshalIndent(summary, "", " ")
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 	}
@@ -72,9 +89,9 @@ func DeleteNS(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.CoreV1().Namespaces().Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.CoreV1().Namespaces().Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting the namespace %s: %v", name, err)), nil
 	}
@@ -92,9 +109,9 @@ func UpdateNS(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 	annotation := request.GetString("annotation", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	namespace, err := clientset.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+	namespace, err := clientset.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in gettting the namespace %s: %v", name, err)), nil
 	}
@@ -109,7 +126,7 @@ func UpdateNS(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 				namespace.Labels[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
 			}
 		}
-		updateNamespace, err := clientset.CoreV1().Namespaces().Update(context.TODO(), namespace, metav1.UpdateOptions{})
+		updateNamespace, err := clientset.CoreV1().Namespaces().Update(ctx, namespace, metav1.UpdateOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in updating namesapce %s with label %s: %v", name, labels, err)), nil
 		}
@@ -127,7 +144,7 @@ func UpdateNS(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 				namespace.Annotations[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
 			}
 		}
-		updateNamespace, err := clientset.CoreV1().Namespaces().Update(context.TODO(), namespace, metav1.UpdateOptions{})
+		updateNamespace, err := clientset.CoreV1().Namespaces().Update(ctx, namespace, metav1.UpdateOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in updating namespace %s with annotation %s: %v", name, annotation, err)), nil
 		}
@@ -147,7 +164,7 @@ func CreateNS(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 	labels := request.GetString("label", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 
 	lab := make(map[string]string)
@@ -170,7 +187,7 @@ func CreateNS(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 		},
 	}
 
-	createNamespace, err := clientset.CoreV1().Namespaces().Create(context.TODO(), namespace, metav1.CreateOptions{})
+	createNamespace, err := clientset.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in creating namespace %s: %v", name, err)), nil
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"k8s-mcp/kubernetes/client"
+	outpkg "k8s-mcp/kubernetes/output"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -22,30 +23,40 @@ type networkPolicyData struct {
 
 func ListNetworkPolicy(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns := request.GetString("namespace", "")
+	outputFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 	var output []networkPolicyData
 	if ns == "" {
-		namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing namespace: %v", err)), nil
 		}
+		var allItems []networkingv1.NetworkPolicy
 		for _, namespace := range namespaces.Items {
-			policies, err := clientset.NetworkingV1().NetworkPolicies(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+			policies, err := clientset.NetworkingV1().NetworkPolicies(namespace.Name).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error in listing networkpolicy in %s: %v", namespace.Name, err)), nil
 			}
-			for _, np := range policies.Items {
-				output = append(output, networkPolicyData{
-					Name:        np.Name,
-					Namespace:   np.Namespace,
-					PodSelector: np.Spec.PodSelector.MatchLabels,
-					PolicyTypes: np.Spec.PolicyTypes,
-					Labels:      np.Labels,
-				})
+			allItems = append(allItems, policies.Items...)
+		}
+		if outputFmt != "" {
+			result, err := outpkg.Format(outputFmt, allItems)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
 			}
+			return mcp.NewToolResultText(result), nil
+		}
+		for _, np := range allItems {
+			output = append(output, networkPolicyData{
+				Name:        np.Name,
+				Namespace:   np.Namespace,
+				PodSelector: np.Spec.PodSelector.MatchLabels,
+				PolicyTypes: np.Spec.PolicyTypes,
+				Labels:      np.Labels,
+			})
 		}
 		mcpOutput, err := json.MarshalIndent(output, "", " ")
 		if err != nil {
@@ -53,9 +64,16 @@ func ListNetworkPolicy(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 		}
 		return mcp.NewToolResultText(string(mcpOutput)), nil
 	} else {
-		policies, err := clientset.NetworkingV1().NetworkPolicies(ns).List(context.TODO(), metav1.ListOptions{})
+		policies, err := clientset.NetworkingV1().NetworkPolicies(ns).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing networkpolicy in %s namespace: %v", ns, err)), nil
+		}
+		if outputFmt != "" {
+			result, err := outpkg.Format(outputFmt, policies.Items)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(result), nil
 		}
 		for _, np := range policies.Items {
 			output = append(output, networkPolicyData{
@@ -85,14 +103,24 @@ func GetNetworkPolicy(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 		output := fmt.Sprintf("Provide name for networkpolicy")
 		return mcp.NewToolResultText(string(output)), nil
 	}
+	outputFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	np, err := clientset.NetworkingV1().NetworkPolicies(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	np, err := clientset.NetworkingV1().NetworkPolicies(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting networkpolicy %s/%s: %v", ns, name, err)), nil
 	}
+
+	if outputFmt != "" {
+		result, err := outpkg.Format(outputFmt, np)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
+	}
+
 	output := networkPolicyData{
 		Name:        np.Name,
 		Namespace:   np.Namespace,
@@ -120,9 +148,9 @@ func DeleteNetworkPolicy(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.NetworkingV1().NetworkPolicies(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.NetworkingV1().NetworkPolicies(ns).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting networkpolicy %s/%s: %v", ns, name, err)), nil
 	}
@@ -146,7 +174,7 @@ func CreateNetworkPolicy(ctx context.Context, request mcp.CallToolRequest) (*mcp
 
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 
 	// Parse pod selector labels
@@ -188,7 +216,7 @@ func CreateNetworkPolicy(ctx context.Context, request mcp.CallToolRequest) (*mcp
 		},
 	}
 
-	createNP, err := clientset.NetworkingV1().NetworkPolicies(ns).Create(context.TODO(), networkPolicy, metav1.CreateOptions{})
+	createNP, err := clientset.NetworkingV1().NetworkPolicies(ns).Create(ctx, networkPolicy, metav1.CreateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in creating networkpolicy %s/%s: %v", ns, name, err)), nil
 	}

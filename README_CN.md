@@ -1,10 +1,10 @@
 # K8S MCP SERVER
 
-k8s-mcp is a Golang based Model Context Protocol (MCP) server that expose Kubernetes resources as structured MCP tools, enable AI agents to safely interact with Kubernetes cluster.
+k8s-mcp 是一个基于 Golang 的模型上下文协议（MCP）服务器，它将 Kubernetes 资源暴露为结构化的 MCP 工具，使 AI 代理能够安全地与 Kubernetes 集群进行交互。
 
 ## Features
 
-### Supported Kubernetes resources and operations (100+ tools):
+### 支持的 Kubernetes 资源和操作（100+ tools）：
 
 - Pod: Create, Get, List, Update, Delete and Log.
 - Deployment: Create, Get, List, Update and Delete.
@@ -36,27 +36,27 @@ k8s-mcp is a Golang based Model Context Protocol (MCP) server that expose Kubern
 - Job: Create, Get, List and Delete.
 - CronJob: Create, Get, List and Delete.
 - NetworkPolicy: Create, Get, List and Delete.
-- Helm: List/Get/Install/Upgrade/Uninstall/Rollback releases, Get history/manifest/notes/values, Manage repositories.
-- Cluster Diagnosis: describe-pod, describe-node, describe-deployment, describe-service, list-node-pods, check-apiserver-health, check-apiserver-metrics.
+- Helm: List/Get/Install/Upgrade/Uninstall/Rollback releases, Get history/manifest/notes/values, Manage repositories
+- Cluster Diagnosis: describe-pod, describe-node, describe-deployment, describe-service, list-node-pods, check-apiserver-health, check-apiserver-metrics
 
 Create any kubernetes resource by passing json data.
 
-All `list-*` and `get-*` tools support an optional `output` parameter (`output=json` or `output=yaml`) to return the full K8s object instead of the summary format.
+所有 `list-*` 和 `get-*` 工具都支持可选的 `output` 参数（`output=json` 或 `output=yaml`），用于返回完整的 K8s 对象而非摘要格式。
 
 ### Custom Resource:
 
-In addition to predefined kubernetes resource tools listed above, this MCP Server also provides a generic custom tool that allows user to interact with any kubernetes custom resource that is not explicitly supported.
+除了上述预定义的 Kubernetes 资源工具外，本 MCP 服务器还提供了一个通用的自定义工具，允许用户与任何未显式支持的 Kubernetes 自定义资源进行交互。
 
-This is useful when:
+这在以下场景中非常有用：
 
-- You want to work with custom resource(CRDs).
-- You want to access new kubernetes resources without updating MCP Server.
+- 你想处理自定义资源（CRDs）。
+- 你想访问新的 Kubernetes 资源而无需更新 MCP 服务器。
 
-The MCP Server forwards the provided parameters to the gRPC backend server, which dynamically resolves the resource and perform the requested action.
+MCP 服务器会将提供的参数转发给 gRPC 后端服务器，该服务器会动态解析资源并执行请求的操作。
 
-Custom Tool Supported Operations: Create, Get, List and Delete.
+自定义工具支持的操作：Create, Get, List and Delete。
 
-NOTE: Parameter details for each resource are available in the respective `README.md` file under the kubernetes directory.
+注意：每个资源的参数详情可在 kubernetes 目录下相应的 `README.md` 文件中查看。
 
 ## Prerequisites
 
@@ -87,7 +87,7 @@ go install k8s-mcp@latest
 }
 ```
 
-Enable the custom tool by using the `--customURL` flag:
+通过使用 `--customURL` 标志启用自定义工具：
 
 ```json
 {
@@ -100,7 +100,7 @@ Enable the custom tool by using the `--customURL` flag:
 }
 ```
 
-### InCluster mode (Pod in Kubernetes):
+### InCluster 模式（Kubernetes Pod 内运行）：
 
 ```json
 {
@@ -112,9 +112,9 @@ Enable the custom tool by using the `--customURL` flag:
   }
 }
 ```
-When running as a Pod, omit `-kubeconfigPath`. The server auto-detects and uses the Pod's service account via `rest.InClusterConfig()`. Ensure RBAC permissions are granted via ClusterRole/ServiceAccount.
+不传 `-kubeconfigPath` 时自动使用 Pod 的 ServiceAccount 通过 `rest.InClusterConfig()` 连接集群。需确保 RBAC 权限已通过 ClusterRole/ServiceAccount 授予。
 
-### HTTP mode (remote / Cursor):
+### HTTP 模式（远程 / Cursor）：
 
 ```json
 {
@@ -130,13 +130,13 @@ When running as a Pod, omit `-kubeconfigPath`. The server auto-detects and uses 
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-mode` | `http` | Server mode: `http` or `stdio` |
-| `-kubeconfigPath` | `""` | Path to kubeconfig file. If empty, uses InCluster config |
-| `-apiKey` | `""` | API key for HTTP Bearer / X-API-Key authentication |
-| `-customURL` | `""` | gRPC server URL for custom resource tool |
+| `-mode` | `http` | 服务器模式：`http` 或 `stdio` |
+| `-kubeconfigPath` | `""` | kubeconfig 文件路径。如果为空，则使用 InCluster 配置 |
+| `-apiKey` | `""` | HTTP Bearer / X-API-Key 认证的 API 密钥 |
+| `-customURL` | `""` | 自定义资源工具的 gRPC 服务器 URL |
 
 ## Security
 
-- Access is fully controlled by the RBAC permissions defined in the kubeconfig.
-- Only operations allowed by the kubeconfig are executed.
-- Optional API key authentication for HTTP mode.
+- 访问权限完全由 kubeconfig 中定义的 RBAC 权限控制。
+- 仅执行 kubeconfig 允许的操作。
+- HTTP 模式支持可选的 API 密钥认证。

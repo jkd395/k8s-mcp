@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"k8s-mcp/kubernetes/client"
+	outpkg "k8s-mcp/kubernetes/output"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -26,37 +27,47 @@ type hpaData struct {
 
 func ListHPA(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns := request.GetString("namespace", "")
+	outputFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 	var output []hpaData
 	if ns == "" {
-		namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing namespace: %v", err)), nil
 		}
+		var allItems []autoscalingv2.HorizontalPodAutoscaler
 		for _, namespace := range namespaces.Items {
-			hpas, err := clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+			hpas, err := clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace.Name).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error in listing hpa in %s: %v", namespace.Name, err)), nil
 			}
-			for _, h := range hpas.Items {
-				minReplicas := int32(1)
-				if h.Spec.MinReplicas != nil {
-					minReplicas = *h.Spec.MinReplicas
-				}
-				output = append(output, hpaData{
-					Name:               h.Name,
-					Namespace:          h.Namespace,
-					MinReplicas:        minReplicas,
-					MaxReplicas:        h.Spec.MaxReplicas,
-					CurrentReplicas:    h.Status.CurrentReplicas,
-					DesiredReplicas:    h.Status.DesiredReplicas,
-					ScaleTargetRefKind: h.Spec.ScaleTargetRef.Kind,
-					ScaleTargetRefName: h.Spec.ScaleTargetRef.Name,
-				})
+			allItems = append(allItems, hpas.Items...)
+		}
+		if outputFmt != "" {
+			result, err := outpkg.Format(outputFmt, allItems)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
 			}
+			return mcp.NewToolResultText(result), nil
+		}
+		for _, h := range allItems {
+			minReplicas := int32(1)
+			if h.Spec.MinReplicas != nil {
+				minReplicas = *h.Spec.MinReplicas
+			}
+			output = append(output, hpaData{
+				Name:               h.Name,
+				Namespace:          h.Namespace,
+				MinReplicas:        minReplicas,
+				MaxReplicas:        h.Spec.MaxReplicas,
+				CurrentReplicas:    h.Status.CurrentReplicas,
+				DesiredReplicas:    h.Status.DesiredReplicas,
+				ScaleTargetRefKind: h.Spec.ScaleTargetRef.Kind,
+				ScaleTargetRefName: h.Spec.ScaleTargetRef.Name,
+			})
 		}
 		mcpOutput, err := json.MarshalIndent(output, "", " ")
 		if err != nil {
@@ -64,9 +75,16 @@ func ListHPA(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRes
 		}
 		return mcp.NewToolResultText(string(mcpOutput)), nil
 	} else {
-		hpas, err := clientset.AutoscalingV2().HorizontalPodAutoscalers(ns).List(context.TODO(), metav1.ListOptions{})
+		hpas, err := clientset.AutoscalingV2().HorizontalPodAutoscalers(ns).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing hpa in %s namespace: %v", ns, err)), nil
+		}
+		if outputFmt != "" {
+			result, err := outpkg.Format(outputFmt, hpas.Items)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(result), nil
 		}
 		for _, h := range hpas.Items {
 			minReplicas := int32(1)
@@ -103,13 +121,22 @@ func GetHPA(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResu
 		output := fmt.Sprintf("Provide name for hpa")
 		return mcp.NewToolResultText(string(output)), nil
 	}
+	outputFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	h, err := clientset.AutoscalingV2().HorizontalPodAutoscalers(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	h, err := clientset.AutoscalingV2().HorizontalPodAutoscalers(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting hpa %s/%s: %v", ns, name, err)), nil
+	}
+
+	if outputFmt != "" {
+		result, err := outpkg.Format(outputFmt, h)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
 	}
 
 	var targetCPU *int32
@@ -170,9 +197,9 @@ func DeleteHPA(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.AutoscalingV2().HorizontalPodAutoscalers(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.AutoscalingV2().HorizontalPodAutoscalers(ns).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting hpa %s/%s: %v", ns, name, err)), nil
 	}
@@ -207,7 +234,7 @@ func CreateHPA(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 
 	minReplicasInt32 := int32(minReplicas)
@@ -242,7 +269,7 @@ func CreateHPA(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 		},
 	}
 
-	createHPA, err := clientset.AutoscalingV2().HorizontalPodAutoscalers(ns).Create(context.TODO(), hpa, metav1.CreateOptions{})
+	createHPA, err := clientset.AutoscalingV2().HorizontalPodAutoscalers(ns).Create(ctx, hpa, metav1.CreateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in creating hpa %s/%s: %v", ns, name, err)), nil
 	}

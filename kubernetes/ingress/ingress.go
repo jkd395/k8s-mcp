@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"k8s-mcp/kubernetes/client"
+	"k8s-mcp/kubernetes/output"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -21,27 +22,35 @@ type ingressData struct {
 
 func ListIngress(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns := request.GetString("namespace", "")
+	outFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	var output []ingressData
+	var ingressList []ingressData
 	if ns == "" {
-		namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing namespace: %v", err)), nil
 		}
 		for _, namespace := range namespaces.Items {
-			ingresses, err := clientset.NetworkingV1().Ingresses(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+			ingresses, err := clientset.NetworkingV1().Ingresses(namespace.Name).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error in listing ingress in %s: %v", namespace.Name, err)), nil
+			}
+			if outFmt != "" {
+				result, err := output.Format(outFmt, ingresses.Items)
+				if err != nil {
+					return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+				}
+				return mcp.NewToolResultText(result), nil
 			}
 			for _, ingress := range ingresses.Items {
 				var hosts []string
 				for _, rule := range ingress.Spec.Rules {
 					hosts = append(hosts, rule.Host)
 				}
-				output = append(output, ingressData{
+				ingressList = append(ingressList, ingressData{
 					Name:      ingress.Name,
 					Namespace: ingress.Namespace,
 					Hosts:     hosts,
@@ -49,29 +58,36 @@ func ListIngress(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToo
 				})
 			}
 		}
-		mcpOutput, err := json.MarshalIndent(output, "", " ")
+		mcpOutput, err := json.MarshalIndent(ingressList, "", " ")
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 		}
 		return mcp.NewToolResultText(string(mcpOutput)), nil
 	} else {
-		ingresses, err := clientset.NetworkingV1().Ingresses(ns).List(context.TODO(), metav1.ListOptions{})
+		ingresses, err := clientset.NetworkingV1().Ingresses(ns).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing ingress in %s namespace: %v", ns, err)), nil
+		}
+		if outFmt != "" {
+			result, err := output.Format(outFmt, ingresses.Items)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(result), nil
 		}
 		for _, ingress := range ingresses.Items {
 			var hosts []string
 			for _, rule := range ingress.Spec.Rules {
 				hosts = append(hosts, rule.Host)
 			}
-			output = append(output, ingressData{
+			ingressList = append(ingressList, ingressData{
 				Name:      ingress.Name,
 				Namespace: ingress.Namespace,
 				Hosts:     hosts,
 				Labels:    ingress.Labels,
 			})
 		}
-		mcpOutput, err := json.MarshalIndent(output, "", " ")
+		mcpOutput, err := json.MarshalIndent(ingressList, "", " ")
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 		}
@@ -92,23 +108,31 @@ func GetIngress(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTool
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	ingress, err := clientset.NetworkingV1().Ingresses(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	ingress, err := clientset.NetworkingV1().Ingresses(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting ingress %s/%s: %v", ns, name, err)), nil
+	}
+	outFmt := request.GetString("output", "")
+	if outFmt != "" {
+		result, err := output.Format(outFmt, ingress)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
 	}
 	var hosts []string
 	for _, rule := range ingress.Spec.Rules {
 		hosts = append(hosts, rule.Host)
 	}
-	output := ingressData{
+	res := ingressData{
 		Name:      ingress.Name,
 		Namespace: ingress.Namespace,
 		Hosts:     hosts,
 		Labels:    ingress.Labels,
 	}
-	mcpOutput, err := json.MarshalIndent(output, "", " ")
+	mcpOutput, err := json.MarshalIndent(res, "", " ")
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 	}
@@ -128,9 +152,9 @@ func DeleteIngress(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.NetworkingV1().Ingresses(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.NetworkingV1().Ingresses(ns).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting ingress %s/%s: %v", ns, name, err)), nil
 	}
@@ -157,7 +181,7 @@ func CreateIngress(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 
 	lab := make(map[string]string)
@@ -212,7 +236,7 @@ func CreateIngress(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 		},
 	}
 
-	createIngress, err := clientset.NetworkingV1().Ingresses(ns).Create(context.TODO(), ingress, metav1.CreateOptions{})
+	createIngress, err := clientset.NetworkingV1().Ingresses(ns).Create(ctx, ingress, metav1.CreateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in creating ingress %s/%s: %v", ns, name, err)), nil
 	}

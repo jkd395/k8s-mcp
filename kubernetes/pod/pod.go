@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"k8s-mcp/kubernetes/client"
+	"k8s-mcp/kubernetes/output"
 	"io"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,25 +25,28 @@ type podData struct {
 func ListPod(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns := request.GetString("namespace", "")
 	labels := request.GetString("label", "")
+	outFormat := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	var output []podData
+	var summary []podData
 	if ns == "" {
-		namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing namespace: %v", err)), nil
 		}
+		var allPods []v1.Pod
 		for _, namespace := range namespaces.Items {
-			pods, err := clientset.CoreV1().Pods(namespace.Name).List(context.TODO(), metav1.ListOptions{
+			pods, err := clientset.CoreV1().Pods(namespace.Name).List(ctx, metav1.ListOptions{
 				LabelSelector: labels,
 			})
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error in listing pod in %s: %v", namespace.Name, err)), nil
 			}
+			allPods = append(allPods, pods.Items...)
 			for _, pod := range pods.Items {
-				output = append(output, podData{
+				summary = append(summary, podData{
 					Name:      pod.Name,
 					Namespace: pod.Namespace,
 					Status:    string(pod.Status.Phase),
@@ -50,27 +54,41 @@ func ListPod(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRes
 				})
 			}
 		}
-		mcpOutput, err := json.MarshalIndent(output, "", " ")
+		if outFormat != "" {
+			result, err := output.Format(outFormat, allPods)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(result), nil
+		}
+		mcpOutput, err := json.MarshalIndent(summary, "", " ")
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 		}
 		return mcp.NewToolResultText(string(mcpOutput)), nil
 	} else {
-		pods, err := clientset.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{
+		pods, err := clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{
 			LabelSelector: labels,
 		})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing pods in %s: %v", ns, err)), nil
 		}
+		if outFormat != "" {
+			result, err := output.Format(outFormat, pods.Items)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(result), nil
+		}
 		for _, pod := range pods.Items {
-			output = append(output, podData{
+			summary = append(summary, podData{
 				Name:      pod.Name,
 				Namespace: pod.Namespace,
 				Status:    string(pod.Status.Phase),
 				Labels:    pod.Labels,
 			})
 		}
-		mcpOutput, err := json.MarshalIndent(output, "", " ")
+		mcpOutput, err := json.MarshalIndent(summary, "", " ")
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 		}
@@ -81,21 +99,30 @@ func ListPod(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRes
 func GetPod(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns, err := request.RequireString("namespace")
 	if err != nil {
-		output := fmt.Sprintf("Provide namespace for pod")
-		return mcp.NewToolResultText(string(output)), nil
+		msg := fmt.Sprintf("Provide namespace for pod")
+		return mcp.NewToolResultText(msg), nil
 	}
 	name, err := request.RequireString("name")
 	if err != nil {
-		output := fmt.Sprintf("Provide name for pod")
-		return mcp.NewToolResultText(string(output)), nil
+		msg := fmt.Sprintf("Provide name for pod")
+		return mcp.NewToolResultText(msg), nil
 	}
+	outFormat := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	pod, err := clientset.CoreV1().Pods(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	pod, err := clientset.CoreV1().Pods(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting pods in %s/%s: %v", ns, name, err)), nil
+	}
+
+	if outFormat != "" {
+		result, err := output.Format(outFormat, pod)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
 	}
 
 	cName := make([]string, 0, len(pod.Spec.Containers))
@@ -104,7 +131,7 @@ func GetPod(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResu
 		cName = append(cName, container.Name)
 	}
 
-	output := podData{
+	summary := podData{
 		Name:          pod.Name,
 		Namespace:     pod.Namespace,
 		Status:        string(pod.Status.Phase),
@@ -112,7 +139,7 @@ func GetPod(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResu
 		ContainerName: cName,
 	}
 
-	mcpOutput, err := json.MarshalIndent(output, "", " ")
+	mcpOutput, err := json.MarshalIndent(summary, "", " ")
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 	}
@@ -132,9 +159,9 @@ func DeletePod(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.CoreV1().Pods(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.CoreV1().Pods(ns).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting pods in %s/%s: %v", ns, name, err)), nil
 	}
@@ -160,9 +187,9 @@ func UpdatePod(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	pod, err := clientset.CoreV1().Pods(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	pod, err := clientset.CoreV1().Pods(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting pods in %s/%s: %v", ns, name, err)), nil
 	}
@@ -176,7 +203,7 @@ func UpdatePod(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 			pod.Labels[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
 		}
 	}
-	updatePod, err := clientset.CoreV1().Pods(ns).Update(context.TODO(), pod, metav1.UpdateOptions{})
+	updatePod, err := clientset.CoreV1().Pods(ns).Update(ctx, pod, metav1.UpdateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in updating pod %s/%s with label %s: %v", ns, name, labels, err)), nil
 	}
@@ -209,7 +236,7 @@ func CreatePod(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 	containerPorts := request.GetString("containerPorts", "http:8080")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 
 	lab := make(map[string]string)
@@ -279,7 +306,7 @@ func CreatePod(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 			Containers: containers,
 		},
 	}
-	createPod, err := clientset.CoreV1().Pods(ns).Create(context.TODO(), pod, metav1.CreateOptions{})
+	createPod, err := clientset.CoreV1().Pods(ns).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in creating pod %s/%s: %v", ns, name, err)), nil
 	}
@@ -307,10 +334,10 @@ func PodLog(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResu
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 	req := clientset.CoreV1().Pods(ns).GetLogs(name, &podLogOptions)
-	podLog, err := req.Stream(context.TODO())
+	podLog, err := req.Stream(ctx)
 	if err != nil {
 		output := fmt.Sprintf("Error in streaming the log for Pod %s/%s: %v", ns, name, err)
 		return mcp.NewToolResultText(string(output)), nil

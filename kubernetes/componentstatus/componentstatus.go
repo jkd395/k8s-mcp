@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"k8s-mcp/kubernetes/client"
+	outpkg "k8s-mcp/kubernetes/output"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -16,14 +17,24 @@ type csData struct {
 }
 
 func ListComponentStatus(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	outputFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	css, err := clientset.CoreV1().ComponentStatuses().List(context.TODO(), metav1.ListOptions{})
+	css, err := clientset.CoreV1().ComponentStatuses().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in listing componentstatus: %v", err)), nil
 	}
+
+	if outputFmt != "" {
+		result, err := outpkg.Format(outputFmt, css.Items)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
+	}
+
 	var output []csData
 	for _, cs := range css.Items {
 		status := "Unknown"
@@ -51,14 +62,24 @@ func GetComponentStatus(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 		output := fmt.Sprintf("Provide name for componentstatus")
 		return mcp.NewToolResultText(string(output)), nil
 	}
+	outputFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	cs, err := clientset.CoreV1().ComponentStatuses().Get(context.TODO(), name, metav1.GetOptions{})
+	cs, err := clientset.CoreV1().ComponentStatuses().Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting componentstatus %s: %v", name, err)), nil
 	}
+
+	if outputFmt != "" {
+		result, err := outpkg.Format(outputFmt, cs)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(result), nil
+	}
+
 	status := "Unknown"
 	ctype := ""
 	for _, c := range cs.Conditions {

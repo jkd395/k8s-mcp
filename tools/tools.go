@@ -16,6 +16,10 @@ var ListPod = mcp.NewTool(
 		"label",
 		mcp.Description("Only return pods matching this label selector"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetPod = mcp.NewTool(
@@ -30,6 +34,10 @@ var GetPod = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("The name of the pod to get details"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -128,6 +136,10 @@ var PodLog = mcp.NewTool(
 var ListNS = mcp.NewTool(
 	"list-ns",
 	mcp.WithDescription("List the namespace in the kubernetes cluster with status"),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetNS = mcp.NewTool(
@@ -137,6 +149,10 @@ var GetNS = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("The name of the namespace to get details for"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -194,6 +210,10 @@ var ListDeployment = mcp.NewTool(
 		"label",
 		mcp.Description("The deployment should be listed only if this particular label is exist"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetDeployment = mcp.NewTool(
@@ -208,6 +228,10 @@ var GetDeployment = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the deployment to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -306,6 +330,10 @@ var ListService = mcp.NewTool(
 		"namespace",
 		mcp.Description("List the service in the particular namespace"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetService = mcp.NewTool(
@@ -320,6 +348,10 @@ var GetService = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the service to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -407,6 +439,10 @@ var ListStatefulset = mcp.NewTool(
 		"label",
 		mcp.Description("Get the statefulset only if this particular label is exist"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetStatefulset = mcp.NewTool(
@@ -421,6 +457,10 @@ var GetStatefulset = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the statefulset to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -544,6 +584,10 @@ var ListDaemonset = mcp.NewTool(
 		"label",
 		mcp.Description("Get the daemonset only if this particular label is exist"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetDaemonset = mcp.NewTool(
@@ -558,6 +602,10 @@ var GetDaemonset = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the daemonset to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -648,6 +696,10 @@ var ListConfigmap = mcp.NewTool(
 		"namespace",
 		mcp.Description("List the configmap in the particular namespace"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetConfigmap = mcp.NewTool(
@@ -662,6 +714,10 @@ var GetConfigmap = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the configmap to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -708,6 +764,10 @@ var ListSecret = mcp.NewTool(
 		"namespace",
 		mcp.Description("List the secret in the particular namespace"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetSecret = mcp.NewTool(
@@ -722,6 +782,10 @@ var GetSecret = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the secret to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -764,6 +828,10 @@ var CreateSecret = mcp.NewTool(
 var ListNode = mcp.NewTool(
 	"list-node",
 	mcp.WithDescription("List the node in the kubernetes cluster with status"),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetNode = mcp.NewTool(
@@ -773,6 +841,10 @@ var GetNode = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the node to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -813,6 +885,10 @@ var ListSA = mcp.NewTool(
 		"label",
 		mcp.Description("Label of the serviceAccount, if we need to list the service account with particualr label exist"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetSA = mcp.NewTool(
@@ -827,6 +903,10 @@ var GetSA = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the serviceAccount to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -872,6 +952,10 @@ var ListPVC = mcp.NewTool(
 		"namespace",
 		mcp.Description("List the pvc in the particular namespace"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetPVC = mcp.NewTool(
@@ -886,6 +970,10 @@ var GetPVC = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the pvc to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -956,6 +1044,10 @@ var CreatePVC = mcp.NewTool(
 var ListPV = mcp.NewTool(
 	"list-pv",
 	mcp.WithDescription("List the entire pv"),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetPV = mcp.NewTool(
@@ -965,6 +1057,10 @@ var GetPV = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the pv to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -986,6 +1082,10 @@ var ListRole = mcp.NewTool(
 		"namespace",
 		mcp.Description("List the role in the particular namespace"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetRole = mcp.NewTool(
@@ -1000,6 +1100,10 @@ var GetRole = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the role to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1026,6 +1130,10 @@ var ListRB = mcp.NewTool(
 		"namespace",
 		mcp.Description("List the rolebinding in the particular namespace"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetRB = mcp.NewTool(
@@ -1040,6 +1148,10 @@ var GetRB = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the rolebinding to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1062,6 +1174,10 @@ var DeleteRB = mcp.NewTool(
 var ListCR = mcp.NewTool(
 	"list-clusterrole",
 	mcp.WithDescription("List all the clusterrole in the cluster"),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetCR = mcp.NewTool(
@@ -1071,6 +1187,10 @@ var GetCR = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the clusterrole to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1088,6 +1208,10 @@ var DeleteCR = mcp.NewTool(
 var ListCRB = mcp.NewTool(
 	"list-clusterrolebinding",
 	mcp.WithDescription("List all the clusterrolebinding in the cluster"),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetCRB = mcp.NewTool(
@@ -1097,6 +1221,10 @@ var GetCRB = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the clusterrolebinding to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1114,6 +1242,10 @@ var DeleteCRB = mcp.NewTool(
 var ListSC = mcp.NewTool(
 	"list-storageClass",
 	mcp.WithDescription("List the storageClass in the entier cluster"),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetSC = mcp.NewTool(
@@ -1123,6 +1255,10 @@ var GetSC = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the storageClass to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1168,6 +1304,10 @@ var Custom = mcp.NewTool(
 var ListCRD = mcp.NewTool(
 	"list-crd",
 	mcp.WithDescription("List the crds in the cluster"),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetCRD = mcp.NewTool(
@@ -1177,6 +1317,10 @@ var GetCRD = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the crd to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1219,6 +1363,10 @@ var ListIngress = mcp.NewTool(
 		"namespace",
 		mcp.Description("List the ingress in the particular namespace"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetIngress = mcp.NewTool(
@@ -1233,6 +1381,10 @@ var GetIngress = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the ingress to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1294,6 +1446,10 @@ var ListHPA = mcp.NewTool(
 		"namespace",
 		mcp.Description("List the hpa in the particular namespace"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetHPA = mcp.NewTool(
@@ -1308,6 +1464,10 @@ var GetHPA = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the hpa to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1371,6 +1531,10 @@ var ListJob = mcp.NewTool(
 		"namespace",
 		mcp.Description("List the job in the particular namespace"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetJob = mcp.NewTool(
@@ -1385,6 +1549,10 @@ var GetJob = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the job to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1456,6 +1624,10 @@ var ListCronJob = mcp.NewTool(
 		"namespace",
 		mcp.Description("List the cronjob in the particular namespace"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetCronJob = mcp.NewTool(
@@ -1470,6 +1642,10 @@ var GetCronJob = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the cronjob to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1534,6 +1710,10 @@ var ListNetworkPolicy = mcp.NewTool(
 		"namespace",
 		mcp.Description("List the networkpolicy in the particular namespace"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetNetworkPolicy = mcp.NewTool(
@@ -1548,6 +1728,10 @@ var GetNetworkPolicy = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the networkpolicy to get"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1597,6 +1781,10 @@ var ListEvent = mcp.NewTool(
 		"namespace",
 		mcp.Description("List the event in the particular namespace"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetEvent = mcp.NewTool(
@@ -1612,6 +1800,10 @@ var GetEvent = mcp.NewTool(
 		mcp.Required(),
 		mcp.Description("Name of the event to get"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 // ResourceQuota tools
@@ -1621,6 +1813,10 @@ var ListResourceQuota = mcp.NewTool(
 	mcp.WithString(
 		"namespace",
 		mcp.Description("List the resourcequota in the particular namespace"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1637,6 +1833,10 @@ var GetResourceQuota = mcp.NewTool(
 		mcp.Required(),
 		mcp.Description("Name of the resourcequota to get"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 // LimitRange tools
@@ -1646,6 +1846,10 @@ var ListLimitRange = mcp.NewTool(
 	mcp.WithString(
 		"namespace",
 		mcp.Description("List the limitrange in the particular namespace"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1662,6 +1866,10 @@ var GetLimitRange = mcp.NewTool(
 		mcp.Required(),
 		mcp.Description("Name of the limitrange to get"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 // Endpoint tools
@@ -1671,6 +1879,10 @@ var ListEndpoint = mcp.NewTool(
 	mcp.WithString(
 		"namespace",
 		mcp.Description("List the endpoint in the particular namespace"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1687,12 +1899,20 @@ var GetEndpoint = mcp.NewTool(
 		mcp.Required(),
 		mcp.Description("Name of the endpoint to get"),
 	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 // ComponentStatus tools
 var ListComponentStatus = mcp.NewTool(
 	"list-componentstatus",
 	mcp.WithDescription("List health status of Kubernetes control plane components"),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
+	),
 )
 
 var GetComponentStatus = mcp.NewTool(
@@ -1702,6 +1922,10 @@ var GetComponentStatus = mcp.NewTool(
 		"name",
 		mcp.Required(),
 		mcp.Description("Name of the component (e.g., etcd-0, kube-apiserver)"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full K8s object, yaml=full K8s object"),
 	),
 )
 
@@ -1729,4 +1953,333 @@ var GetClusterHealth = mcp.NewTool(
 var ListNodeHealth = mcp.NewTool(
 	"node-health",
 	mcp.WithDescription("Show detailed health of all nodes: ready status, kubelet version, allocatable resources, labels"),
+)
+
+// Diagnosis tools
+var DescribePod = mcp.NewTool(
+	"describe-pod",
+	mcp.WithDescription("Deep inspect a pod: container states, restart counts, conditions, events, resource requests/limits"),
+	mcp.WithString(
+		"namespace",
+		mcp.Required(),
+		mcp.Description("The namespace of the pod"),
+	),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("The name of the pod"),
+	),
+)
+
+var DescribeNode = mcp.NewTool(
+	"describe-node",
+	mcp.WithDescription("Deep inspect a node: conditions with timestamps, capacity, allocatable, pods, taints, annotations"),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("The name of the node"),
+	),
+)
+
+var ListNodePods = mcp.NewTool(
+	"list-node-pods",
+	mcp.WithDescription("List all pods running on a specific node"),
+	mcp.WithString(
+		"node",
+		mcp.Required(),
+		mcp.Description("Name of the node"),
+	),
+)
+
+var DescribeService = mcp.NewTool(
+	"describe-service",
+	mcp.WithDescription("Deep inspect a service: endpoints, ports, selector, type, session affinity, events"),
+	mcp.WithString(
+		"namespace",
+		mcp.Required(),
+		mcp.Description("The namespace of the service"),
+	),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description(		"The name of the service"),
+	),
+)
+
+var DescribeDeployment = mcp.NewTool(
+	"describe-deployment",
+	mcp.WithDescription("Deep inspect a deployment: conditions (Available/Progressing/ReplicaFailure), strategy, selector, rollout config, events, pods"),
+	mcp.WithString(
+		"namespace",
+		mcp.Required(),
+		mcp.Description("The namespace of the deployment"),
+	),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("The name of the deployment"),
+	),
+)
+
+// API Server Diagnosis tools
+var CheckAPIServerHealth = mcp.NewTool(
+	"check-apiserver-health",
+	mcp.WithDescription("Probe API server health endpoints: /healthz, /livez, /readyz with verbose output. Works for both Pod-based and binary deployments."),
+)
+
+var CheckAPIServerMetrics = mcp.NewTool(
+	"check-apiserver-metrics",
+	mcp.WithDescription("Fetch and analyze API server /metrics: inflight requests, request rate by verb, error rate (4xx/5xx), and latency percentiles (p50/p90/p99). Works for both Pod-based and binary deployments."),
+)
+
+// Helm tools
+var ListHelmReleases = mcp.NewTool(
+	"helm-list-releases",
+	mcp.WithDescription("List Helm releases"),
+	mcp.WithString(
+		"namespace",
+		mcp.Description("Filter by namespace"),
+	),
+	mcp.WithBoolean(
+		"allNamespaces",
+		mcp.Description("List releases across all namespaces"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full object, yaml=full object"),
+	),
+)
+
+var GetHelmRelease = mcp.NewTool(
+	"helm-get-release",
+	mcp.WithDescription("Get details of a Helm release"),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("Release name"),
+	),
+	mcp.WithString(
+		"namespace",
+		mcp.Required(),
+		mcp.Description("Release namespace"),
+	),
+	mcp.WithString(
+		"output",
+		mcp.Description("Output format: empty=summary, json=full object, yaml=full object"),
+	),
+)
+
+var GetHelmReleaseValues = mcp.NewTool(
+	"helm-get-values",
+	mcp.WithDescription("Get the values of a Helm release"),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("Release name"),
+	),
+	mcp.WithString(
+		"namespace",
+		mcp.Required(),
+		mcp.Description("Release namespace"),
+	),
+)
+
+var InstallHelmRelease = mcp.NewTool(
+	"helm-install",
+	mcp.WithDescription("Install a Helm chart"),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("Release name"),
+	),
+	mcp.WithString(
+		"namespace",
+		mcp.Required(),
+		mcp.Description("Target namespace"),
+	),
+	mcp.WithString(
+		"chart",
+		mcp.Required(),
+		mcp.Description("Chart reference (e.g., stable/nginx-ingress, or path)"),
+	),
+	mcp.WithString(
+		"version",
+		mcp.Description("Chart version"),
+	),
+	mcp.WithString(
+		"values",
+		mcp.Description("Inline YAML/JSON values to pass to the chart"),
+	),
+	mcp.WithString(
+		"set",
+		mcp.Description("Set values on the command line (key1=val1,key2=val2)"),
+	),
+)
+
+var UpgradeHelmRelease = mcp.NewTool(
+	"helm-upgrade",
+	mcp.WithDescription("Upgrade a Helm release"),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("Release name"),
+	),
+	mcp.WithString(
+		"namespace",
+		mcp.Required(),
+		mcp.Description("Release namespace"),
+	),
+	mcp.WithString(
+		"chart",
+		mcp.Required(),
+		mcp.Description("New chart reference"),
+	),
+	mcp.WithString(
+		"version",
+		mcp.Description("Chart version"),
+	),
+	mcp.WithString(
+		"values",
+		mcp.Description("Inline YAML/JSON values to pass to the chart"),
+	),
+	mcp.WithString(
+		"set",
+		mcp.Description("Set values on the command line (key1=val1,key2=val2)"),
+	),
+	mcp.WithBoolean(
+		"reuseValues",
+		mcp.Description("Reuse previous values (default true)"),
+	),
+)
+
+var UninstallHelmRelease = mcp.NewTool(
+	"helm-uninstall",
+	mcp.WithDescription("Uninstall a Helm release"),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("Release name"),
+	),
+	mcp.WithString(
+		"namespace",
+		mcp.Required(),
+		mcp.Description("Release namespace"),
+	),
+)
+
+var RollbackHelmRelease = mcp.NewTool(
+	"helm-rollback",
+	mcp.WithDescription("Rollback a Helm release to a previous revision"),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("Release name"),
+	),
+	mcp.WithString(
+		"namespace",
+		mcp.Required(),
+		mcp.Description("Release namespace"),
+	),
+	mcp.WithNumber(
+		"revision",
+		mcp.Description("Revision to rollback to (default: previous)"),
+	),
+)
+
+var GetHelmReleaseHistory = mcp.NewTool(
+	"helm-history",
+	mcp.WithDescription("Get the revision history of a Helm release"),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("Release name"),
+	),
+	mcp.WithString(
+		"namespace",
+		mcp.Required(),
+		mcp.Description("Release namespace"),
+	),
+	mcp.WithNumber(
+		"max",
+		mcp.Description("Maximum number of revisions to show"),
+	),
+)
+
+var GetHelmReleaseManifest = mcp.NewTool(
+	"helm-get-manifest",
+	mcp.WithDescription("Get the rendered manifest of a Helm release"),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("Release name"),
+	),
+	mcp.WithString(
+		"namespace",
+		mcp.Required(),
+		mcp.Description("Release namespace"),
+	),
+)
+
+var GetHelmReleaseNotes = mcp.NewTool(
+	"helm-get-notes",
+	mcp.WithDescription("Get the notes of a Helm release"),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("Release name"),
+	),
+	mcp.WithString(
+		"namespace",
+		mcp.Required(),
+		mcp.Description("Release namespace"),
+	),
+)
+
+var ListHelmRepos = mcp.NewTool(
+	"helm-list-repos",
+	mcp.WithDescription("List Helm repositories"),
+)
+
+var AddHelmRepo = mcp.NewTool(
+	"helm-add-repo",
+	mcp.WithDescription("Add a Helm repository"),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("Repository name"),
+	),
+	mcp.WithString(
+		"url",
+		mcp.Required(),
+		mcp.Description("Repository URL"),
+	),
+)
+
+var RemoveHelmRepo = mcp.NewTool(
+	"helm-remove-repo",
+	mcp.WithDescription("Remove a Helm repository"),
+	mcp.WithString(
+		"name",
+		mcp.Required(),
+		mcp.Description("Repository name"),
+	),
+)
+
+var UpdateHelmRepos = mcp.NewTool(
+	"helm-update-repos",
+	mcp.WithDescription("Update Helm repositories (download index files for all or a specific repo)"),
+	mcp.WithString(
+		"name",
+		mcp.Description("Repository name to update (omit to update all)"),
+	),
+)
+
+var SearchHelmRepo = mcp.NewTool(
+	"helm-search-repo",
+	mcp.WithDescription("Search for charts in Helm repositories"),
+	mcp.WithString(
+		"keyword",
+		mcp.Required(),
+		mcp.Description("Search keyword"),
+	),
 )

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"k8s-mcp/kubernetes/client"
+	k8soutput "k8s-mcp/kubernetes/output"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -24,21 +25,24 @@ type serviceData struct {
 
 func ListService(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns := request.GetString("namespace", "")
+	outputParam := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 	var output []serviceData
 	if ns == "" {
-		namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing namespace: %v", err)), nil
 		}
+		var allServices []v1.Service
 		for _, namespace := range namespaces.Items {
-			services, err := clientset.CoreV1().Services(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+			services, err := clientset.CoreV1().Services(namespace.Name).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error in listing service in %s: %v", namespace.Name, err)), nil
 			}
+			allServices = append(allServices, services.Items...)
 			for _, service := range services.Items {
 				output = append(output, serviceData{
 					Name:      service.Name,
@@ -47,15 +51,29 @@ func ListService(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToo
 				})
 			}
 		}
+		if outputParam != "" {
+			raw, err := k8soutput.Format(outputParam, allServices)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(raw), nil
+		}
 		mcpOutput, err := json.MarshalIndent(output, "", " ")
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 		}
 		return mcp.NewToolResultText(string(mcpOutput)), nil
 	} else {
-		services, err := clientset.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
+		services, err := clientset.CoreV1().Services(ns).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing service in %s: %v", ns, err)), nil
+		}
+		if outputParam != "" {
+			raw, err := k8soutput.Format(outputParam, services.Items)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(raw), nil
 		}
 		for _, service := range services.Items {
 			output = append(output, serviceData{
@@ -83,13 +101,22 @@ func GetService(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTool
 		output := fmt.Sprintf("Provide name for service")
 		return mcp.NewToolResultText(string(output)), nil
 	}
+	outputParam := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	service, err := clientset.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	service, err := clientset.CoreV1().Services(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting service in %s: %v", ns, err)), nil
+	}
+
+	if outputParam != "" {
+		raw, err := k8soutput.Format(outputParam, service)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(raw), nil
 	}
 
 	var externalIP string
@@ -126,9 +153,9 @@ func DeleteService(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.CoreV1().Services(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.CoreV1().Services(ns).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting service in %s/%s: %v", ns, name, err)), nil
 	}
@@ -152,9 +179,9 @@ func UpdateService(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 	svctype := request.GetString("svctype", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	service, err := clientset.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	service, err := clientset.CoreV1().Services(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting service in %s: %v", ns, err)), nil
 	}
@@ -170,7 +197,7 @@ func UpdateService(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 			}
 		}
 		service.Spec.Selector = m
-		updateService, err := clientset.CoreV1().Services(ns).Update(context.TODO(), service, metav1.UpdateOptions{})
+		updateService, err := clientset.CoreV1().Services(ns).Update(ctx, service, metav1.UpdateOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in updating service in %s/%s: %v", ns, name, err)), nil
 		}
@@ -179,7 +206,7 @@ func UpdateService(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 	}
 	if svctype != "" {
 		service.Spec.Type = v1.ServiceType(svctype)
-		updateService, err := clientset.CoreV1().Services(ns).Update(context.TODO(), service, metav1.UpdateOptions{})
+		updateService, err := clientset.CoreV1().Services(ns).Update(ctx, service, metav1.UpdateOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in updating service in %s/%s: %v", ns, name, err)), nil
 		}
@@ -219,7 +246,7 @@ func CreateService(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 
 	lab := make(map[string]string)
@@ -284,7 +311,7 @@ func CreateService(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 			Type:     v1.ServiceType(svcType),
 		},
 	}
-	deployService, err := clientset.CoreV1().Services(ns).Create(context.TODO(), service, metav1.CreateOptions{})
+	deployService, err := clientset.CoreV1().Services(ns).Create(ctx, service, metav1.CreateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in creating service in %s/%s: %v", ns, name, err)), nil
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"k8s-mcp/kubernetes/client"
+	"k8s-mcp/kubernetes/output"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -20,92 +21,100 @@ type jobData struct {
 	Succeeded   int32             `json:"succeeded,omitempty"`
 	Failed      int32             `json:"failed,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
+	Finalizers  []string          `json:"finalizers,omitempty"`
 }
-
 func ListJob(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns := request.GetString("namespace", "")
+	outFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	var output []jobData
+	var jobs []batchv1.Job
 	if ns == "" {
-		namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing namespace: %v", err)), nil
 		}
 		for _, namespace := range namespaces.Items {
-			jobs, err := clientset.BatchV1().Jobs(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+			items, err := clientset.BatchV1().Jobs(namespace.Name).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error in listing job in %s: %v", namespace.Name, err)), nil
 			}
-			for _, job := range jobs.Items {
-				output = append(output, jobData{
-					Name:        job.Name,
-					Namespace:   job.Namespace,
-					Completions: job.Spec.Completions,
-					Succeeded:   job.Status.Succeeded,
-					Failed:      job.Status.Failed,
-					Labels:      job.Labels,
-				})
-			}
+			jobs = append(jobs, items.Items...)
 		}
-		mcpOutput, err := json.MarshalIndent(output, "", " ")
-		if err != nil {
-			return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
-		}
-		return mcp.NewToolResultText(string(mcpOutput)), nil
 	} else {
-		jobs, err := clientset.BatchV1().Jobs(ns).List(context.TODO(), metav1.ListOptions{})
+		items, err := clientset.BatchV1().Jobs(ns).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing job in %s namespace: %v", ns, err)), nil
 		}
-		for _, job := range jobs.Items {
-			output = append(output, jobData{
-				Name:        job.Name,
-				Namespace:   job.Namespace,
-				Completions: job.Spec.Completions,
-				Succeeded:   job.Status.Succeeded,
-				Failed:      job.Status.Failed,
-				Labels:      job.Labels,
-			})
-		}
-		mcpOutput, err := json.MarshalIndent(output, "", " ")
+		jobs = items.Items
+	}
+
+	if outFmt != "" {
+		out, err := output.Format(outFmt, jobs)
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 		}
-		return mcp.NewToolResultText(string(mcpOutput)), nil
+		return mcp.NewToolResultText(out), nil
 	}
+
+	var out []jobData
+	for _, job := range jobs {
+		out = append(out, jobData{
+			Name:        job.Name,
+			Namespace:   job.Namespace,
+			Completions: job.Spec.Completions,
+			Succeeded:   job.Status.Succeeded,
+			Failed:      job.Status.Failed,
+			Labels:      job.Labels,
+			Finalizers:  job.Finalizers,
+		})
+	}
+	mcpOutput, err := json.MarshalIndent(out, "", " ")
+	if err != nil {
+		return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
+	}
+	return mcp.NewToolResultText(string(mcpOutput)), nil
 }
 
 func GetJob(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns, err := request.RequireString("namespace")
 	if err != nil {
-		output := fmt.Sprintf("Provide namespace for job")
-		return mcp.NewToolResultText(string(output)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Provide namespace for job")), nil
 	}
 	name, err := request.RequireString("name")
 	if err != nil {
-		output := fmt.Sprintf("Provide name for job")
-		return mcp.NewToolResultText(string(output)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Provide name for job")), nil
 	}
+	outFmt := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	job, err := clientset.BatchV1().Jobs(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	job, err := clientset.BatchV1().Jobs(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting job %s/%s: %v", ns, name, err)), nil
 	}
-	output := jobData{
+
+	if outFmt != "" {
+		out, err := output.Format(outFmt, job)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
+		}
+		return mcp.NewToolResultText(out), nil
+	}
+
+	raw := jobData{
 		Name:        job.Name,
 		Namespace:   job.Namespace,
 		Completions: job.Spec.Completions,
 		Succeeded:   job.Status.Succeeded,
 		Failed:      job.Status.Failed,
 		Labels:      job.Labels,
+		Finalizers:  job.Finalizers,
 	}
-	mcpOutput, err := json.MarshalIndent(output, "", " ")
+	mcpOutput, err := json.MarshalIndent(raw, "", " ")
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in marshalling: %v", err)), nil
 	}
@@ -125,9 +134,9 @@ func DeleteJob(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.BatchV1().Jobs(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.BatchV1().Jobs(ns).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting job %s/%s: %v", ns, name, err)), nil
 	}
@@ -164,7 +173,7 @@ func CreateJob(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 
 	lab := make(map[string]string)
@@ -221,7 +230,7 @@ func CreateJob(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 		},
 	}
 
-	createJob, err := clientset.BatchV1().Jobs(ns).Create(context.TODO(), job, metav1.CreateOptions{})
+	createJob, err := clientset.BatchV1().Jobs(ns).Create(ctx, job, metav1.CreateOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in creating job %s/%s: %v", ns, name, err)), nil
 	}

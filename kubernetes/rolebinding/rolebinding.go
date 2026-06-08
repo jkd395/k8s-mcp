@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"k8s-mcp/kubernetes/client"
+	k8soutput "k8s-mcp/kubernetes/output"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,28 +32,37 @@ type subjects struct {
 
 func ListRB(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns := request.GetString("namespace", "")
+	outputParam := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 	var output []rbData
 	if ns == "" {
-		namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing namespace: %v", err)), nil
 		}
+		var rawItems []any
 		for _, namespace := range namespaces.Items {
-			rbs, err := clientset.RbacV1().RoleBindings(namespace.Name).List(context.TODO(), metav1.ListOptions{})
+			rbs, err := clientset.RbacV1().RoleBindings(namespace.Name).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return mcp.NewToolResultText(fmt.Sprintf("Error in listing rolebinding in namespace %s: %v", namespace.Name, err)), nil
 			}
-
 			for _, rb := range rbs.Items {
+				rawItems = append(rawItems, rb)
 				output = append(output, rbData{
 					Name:      rb.Name,
 					Namespace: rb.Namespace,
 				})
 			}
+		}
+		if outputParam != "" {
+			raw, err := k8soutput.Format(outputParam, rawItems)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(raw), nil
 		}
 		mcpOutput, err := json.MarshalIndent(output, "", " ")
 		if err != nil {
@@ -60,9 +70,16 @@ func ListRB(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResu
 		}
 		return mcp.NewToolResultText(string(mcpOutput)), nil
 	} else {
-		rbs, err := clientset.RbacV1().RoleBindings(ns).List(context.TODO(), metav1.ListOptions{})
+		rbs, err := clientset.RbacV1().RoleBindings(ns).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return mcp.NewToolResultText(fmt.Sprintf("Error in listing rolebinding in %s: %v", ns, err)), nil
+		}
+		if outputParam != "" {
+			raw, err := k8soutput.Format(outputParam, rbs.Items)
+			if err != nil {
+				return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+			}
+			return mcp.NewToolResultText(raw), nil
 		}
 		for _, rb := range rbs.Items {
 			output = append(output, rbData{
@@ -89,13 +106,22 @@ func GetRB(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResul
 		output := fmt.Sprintf("Provide name for rolebinding")
 		return mcp.NewToolResultText(string(output)), nil
 	}
+	outputParam := request.GetString("output", "")
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	rb, err := clientset.RbacV1().RoleBindings(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	rb, err := clientset.RbacV1().RoleBindings(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting rolebinding in %s/%s: %v", ns, name, err)), nil
+	}
+
+	if outputParam != "" {
+		raw, err := k8soutput.Format(outputParam, rb)
+		if err != nil {
+			return mcp.NewToolResultText(fmt.Sprintf("Error formatting output: %v", err)), nil
+		}
+		return mcp.NewToolResultText(raw), nil
 	}
 
 	var saDetails []subjects
@@ -143,9 +169,9 @@ func DeleteRB(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolRe
 	}
 	clientset, _, _, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
-	err = clientset.RbacV1().RoleBindings(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = clientset.RbacV1().RoleBindings(ns).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in deleting rolebinding %s/%s: %v", ns, name, err)), nil
 	}

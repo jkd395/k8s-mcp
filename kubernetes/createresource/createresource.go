@@ -18,16 +18,16 @@ func CreateResourceWithJson(ctx context.Context, request mcp.CallToolRequest) (*
 		output := fmt.Sprintf("Provide jsonData to create resource")
 		return mcp.NewToolResultText(string(output)), nil
 	}
-	_, dynamicClient, discoverClient, _, _, err := client.InitializeClients()
+	_, dynamicClient, discoveryClient, _, _, err := client.InitializeClients()
 	if err != nil {
-		return mcp.NewToolResultText(fmt.Sprintf("Error in intialize client: %v", err)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Error in initialize client: %v", err)), nil
 	}
 	var obj unstructured.Unstructured
 	if err = yaml.Unmarshal([]byte(jsondata), &obj); err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in unmarshal the json/yaml data: %v", err)), nil
 	}
 
-	groupResources, err := restmapper.GetAPIGroupResources(discoverClient)
+	groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
 	if err != nil {
 		return mcp.NewToolResultText(fmt.Sprintf("Error in getting API group resources: %v", err)), nil
 	}
